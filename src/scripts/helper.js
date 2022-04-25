@@ -43,99 +43,13 @@ export function setCanvasSize (width, height) {
     .attr('height', height)
 }
 
-/**
- * Appends the labels for the graph.
- *
- * @param {*} g The d3 Selection of the graph's g SVG element
- */
-export function appendGraphLabels (g) {
-  g.append('text')
-    .text('Achalandage et ponctualité des lignes de bus 9 et 22 de la couronne Nord de Montréal')
-    .attr('class', 'title')
-    .attr('fill', '#000000')
-    .attr('font-family', 'myriad-pro')
-    .attr('font-size', 28)
-    .attr('transform', 'translate(50, 50)')
 
-  g.append('text')
-    .text('Sous-titre')
-    .attr('class', 'title')
-    .attr('fill', '#000000')
-    .attr('font-family', 'myriad-pro')
-    .attr('font-size', 18)
-    .attr('transform', 'translate(50, 85)')
-}
-
-/**
- * Initializes the div which will contain the information panel.
- */
-export function initPanelDiv () {
-  d3.select('.graph')
-    .append('div')
-    .attr('id', 'panel')
-    .style('width', '215px')
-    .style('border', '1px solid black')
-    .style('padding', '10px')
-    .style('visibility', 'hidden')
-}
-
-/**
- * Initializes the simulation used to place the circles
- *
- * @param {object} data The data to be displayed
- * @returns {*} The generated simulation
- */
-export function getSimulation (data) {
-  return d3.forceSimulation(data.features)
-    .alphaDecay(0)
-    .velocityDecay(0.75)
-    .force('collision',
-      d3.forceCollide(5)
-        .strength(1)
-    )
-}
-
-/**
- * Update the (x, y) position of the circles'
- * centers on each tick of the simulation.
- *
- * @param {*} simulation The simulation used to position the cirles.
- */
-export function simulate (simulation) {
-  simulation.on('tick', () => {
-    d3.selectAll('.marker')
-      .attr('cx', (d) => d.x)
-      .attr('cy', (d) => d.y)
-  })
-}
-
-/**
- * Sets up the projection to be used.
- *
- * @returns {*} The projection to use to trace the map elements
- */
-export function getProjection () {
-  return d3.geoMercator()
-    .center([-73.708879, 45.579611])
-    .scale(70000)
-}
-
-/**
- * Sets up the path to be used.
- *
- * @param {*} projection The projection used to trace the map elements
- * @returns {*} The path to use to trace the map elements
- */
-export function getPath (projection) {
-  return d3.geoPath()
-    .projection(projection)
-}
 /**
  * @param {number} nSteps The ideal number of steps
  * @param {*} domain Domain of d3 scale
  * @returns {number} The best step to use
  */
- export function getClosestStep (nSteps, domain) {
+export function getClosestStep (nSteps, domain) {
   const BEST_STEPS = [
     0.1, 0.2, 0.25, 0.5,
     1, 2, 2.5, 5,
@@ -168,7 +82,11 @@ export function getSteps (nSteps, domain) {
   if (domain[0] <= 0 && domain[1] >= 0) {
     steps.push(0)
   } else {
-    steps.push(domain[0])
+    let firstStep = Math.floor(domain[0])
+    while (firstStep % step !== 0) {
+      firstStep += 1
+    }
+    steps.push(firstStep)
   }
   while (steps[steps.length - 1] < domain[1] - step) {
     steps.push(steps[steps.length - 1] + step)
@@ -177,4 +95,38 @@ export function getSteps (nSteps, domain) {
     steps.unshift(steps[0] - step)
   }
   return steps
+}
+
+/**
+ * @param {Array<number>} array Array of numeric values
+ * @returns {Array<number>} The quantiles
+ */
+export function getQuantiles (array) {
+  array = array.sort(d3.ascending)
+  const quantiles = [
+    array[0],
+    d3.quantile(array, 0.25),
+    d3.median(array),
+    d3.quantile(array, 0.75),
+    array[array.length - 1]
+  ]
+  return quantiles
+}
+
+/**
+ * @param {Date} d date
+ * @returns {number} weekNo
+ */
+export function getWeekNumber (d) {
+  // Copy date so don't modify original
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  // Set to nearest Thursday: current date + 4 - current day number
+  // Make Sunday's day number 7
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
+  // Get first day of year
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  // Calculate full weeks to nearest Thursday
+  var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+  // Return array of year and week number
+  return [d.getUTCFullYear(), weekNo]
 }

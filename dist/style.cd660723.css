@@ -9,23 +9,35 @@ body {
     flex-direction: column;
     
 }
-
+p {
+    font-size:13px
+}
 header {
     margin: 10px 50px;
 }
 
 main {
-    height: 100%;
     margin: 10px 50px;
+    height: calc(100vh - 20px);
     font-family: 'myriad-pro', 'sans-serif';
+    display: flex;
+    flex-flow: column;
 }
 
 .main-svg text {
     pointer-events: none;
 }
-
+select{
+    font-family: sans-serif
+}
+.form-group{
+    font-size: 13px
+}
+.modal-title{
+    font-size: 18px;
+}
 button {
-    padding: 10px 30px;
+    padding: 8px 30px;
     color: rgb(255, 255, 255);
     background-color: rgb(0, 0, 0);
     border: 1px solid rgb(218, 218, 218);
@@ -33,12 +45,9 @@ button {
     cursor: pointer;
     outline: 0;
     font-family: 'myriad-pro', 'sans-serif';
-    font-size: 16px;
+    font-size: 15px;
 }
-
-
-
-button:hover, button:active {
+.button button:hover, .button button:active {
 	background:linear-gradient(to bottom, #202020 5%, #000000 100%);
 	background-color:#f6f6f6;
 }
@@ -47,14 +56,32 @@ button:hover, button:active {
     height: 100%;
 }
 
-.graph {
+#viz1-container{
     width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    height: 90vh;
+    display: grid;
+    grid-template-columns: auto 200px;
 }
 
+#heatmap-svg-container {
+    width: 100%;
+    height: 100%;
+}
+
+#heatmap-svg {
+    width: 100%;
+    height: 100%;
+}
+
+#heatmap-tooltip {
+    width: 100%;
+    height: 100%;
+}
+
+#heatmap-tooltip-aligner {
+    border: 1px black solid;
+    padding: 10px;
+}
 
 #marker-g circle {
     cursor: pointer;
@@ -63,12 +90,59 @@ button:hover, button:active {
 #grouped-quantile-graph-container {
     height: 100%;
     width: 100%;
-  }
-  a {
+    overflow: hidden;
+}
+
+.help:hover{
+    fill:#000000;
+    filter: drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));
+    cursor: pointer;
+}
+
+#candlestick-graph-container {
+    height: 80vh;
+    width: 100%;
+}
+.modal-header {
+    
+    background-color: #000000;
+    color:rgb(255, 255, 255);
+    padding:9px 15px;
+}
+.modal-body{
+    background-color: #fafafa;
+
+}
+.legend-title {
+    font-weight: bold;
+}
+
+.legend {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.legend-element {
+    display: flex;
+    padding: 10px;
+}
+p.col {
+    margin-bottom: 0;
+    text-align: right;
+}
+
+a,h2 {
     display: flex;
     flex-grow: 0;
-  }
-  a.button {
+    margin-bottom: calc(2 * 0.67em); /*same as h1*/
+    margin-left:0;
+}
+h1 {
+    font-size:32px 
+}
+
+a.button {
     -webkit-appearance: button;
     -moz-appearance: button;
     appearance: button;

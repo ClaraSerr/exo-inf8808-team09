@@ -126,14 +126,10 @@ Object.defineProperty(exports, "__esModule", {
 exports.generateMapG = generateMapG;
 exports.generateMarkerG = generateMarkerG;
 exports.setCanvasSize = setCanvasSize;
-exports.appendGraphLabels = appendGraphLabels;
-exports.initPanelDiv = initPanelDiv;
-exports.getSimulation = getSimulation;
-exports.simulate = simulate;
-exports.getProjection = getProjection;
-exports.getPath = getPath;
 exports.getClosestStep = getClosestStep;
 exports.getSteps = getSteps;
+exports.getQuantiles = getQuantiles;
+exports.getWeekNumber = getWeekNumber;
 
 /**
  * Generates the SVG element g which will contain the map base.
@@ -167,74 +163,6 @@ function generateMarkerG(width, height) {
 
 function setCanvasSize(width, height) {
   d3.select('#map').select('svg').attr('width', width).attr('height', height);
-}
-/**
- * Appends the labels for the graph.
- *
- * @param {*} g The d3 Selection of the graph's g SVG element
- */
-
-
-function appendGraphLabels(g) {
-  g.append('text').text('Achalandage et ponctualité des lignes de bus 9 et 22 de la couronne Nord de Montréal').attr('class', 'title').attr('fill', '#000000').attr('font-family', 'myriad-pro').attr('font-size', 28).attr('transform', 'translate(50, 50)');
-  g.append('text').text('Sous-titre').attr('class', 'title').attr('fill', '#000000').attr('font-family', 'myriad-pro').attr('font-size', 18).attr('transform', 'translate(50, 85)');
-}
-/**
- * Initializes the div which will contain the information panel.
- */
-
-
-function initPanelDiv() {
-  d3.select('.graph').append('div').attr('id', 'panel').style('width', '215px').style('border', '1px solid black').style('padding', '10px').style('visibility', 'hidden');
-}
-/**
- * Initializes the simulation used to place the circles
- *
- * @param {object} data The data to be displayed
- * @returns {*} The generated simulation
- */
-
-
-function getSimulation(data) {
-  return d3.forceSimulation(data.features).alphaDecay(0).velocityDecay(0.75).force('collision', d3.forceCollide(5).strength(1));
-}
-/**
- * Update the (x, y) position of the circles'
- * centers on each tick of the simulation.
- *
- * @param {*} simulation The simulation used to position the cirles.
- */
-
-
-function simulate(simulation) {
-  simulation.on('tick', function () {
-    d3.selectAll('.marker').attr('cx', function (d) {
-      return d.x;
-    }).attr('cy', function (d) {
-      return d.y;
-    });
-  });
-}
-/**
- * Sets up the projection to be used.
- *
- * @returns {*} The projection to use to trace the map elements
- */
-
-
-function getProjection() {
-  return d3.geoMercator().center([-73.708879, 45.579611]).scale(70000);
-}
-/**
- * Sets up the path to be used.
- *
- * @param {*} projection The projection used to trace the map elements
- * @returns {*} The path to use to trace the map elements
- */
-
-
-function getPath(projection) {
-  return d3.geoPath().projection(projection);
 }
 /**
  * @param {number} nSteps The ideal number of steps
@@ -274,7 +202,13 @@ function getSteps(nSteps, domain) {
   if (domain[0] <= 0 && domain[1] >= 0) {
     steps.push(0);
   } else {
-    steps.push(domain[0]);
+    var firstStep = Math.floor(domain[0]);
+
+    while (firstStep % step !== 0) {
+      firstStep += 1;
+    }
+
+    steps.push(firstStep);
   }
 
   while (steps[steps.length - 1] < domain[1] - step) {
@@ -287,35 +221,35 @@ function getSteps(nSteps, domain) {
 
   return steps;
 }
-},{}],"scripts/heatmap.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.drawHeatmap = drawHeatmap;
-
-// Idée générale pour l'algorithme qui parcours l'objet vizData pour recueillir les valeurs pour chaque carré de la heatmap.
-
 /**
- * @param vizData
- * @param ligne
- * @param girouette
- * @param indicateur
+ * @param {Array<number>} array Array of numeric values
+ * @returns {Array<number>} The quantiles
  */
-function drawHeatmap(vizData, ligne, girouette, indicateur) {
-  var posLigne = vizData.findIndex(function (e) {
-    return e.ligne === ligne;
-  });
-  var posGirouette = vizData[posLigne].girouettes.findIndex(function (e) {
-    return e.girouette === girouette;
-  });
 
-  for (var v = 0; v < vizData[posLigne].girouettes[posGirouette].voyages.length; v++) {
-    for (var a = 0; a < vizData[posLigne].girouettes[posGirouette].voyages[v].arrets.length; a++) {
-      var valueSquare = vizData[posLigne].girouettes[posGirouette].voyages[v].arrets[a][indicateur]; //console.log(valueSquare)
-    }
-  }
+
+function getQuantiles(array) {
+  array = array.sort(d3.ascending);
+  var quantiles = [array[0], d3.quantile(array, 0.25), d3.median(array), d3.quantile(array, 0.75), array[array.length - 1]];
+  return quantiles;
+}
+/**
+ * @param {Date} d date
+ * @returns {number} weekNo
+ */
+
+
+function getWeekNumber(d) {
+  // Copy date so don't modify original
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); // Set to nearest Thursday: current date + 4 - current day number
+  // Make Sunday's day number 7
+
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); // Get first day of year
+
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1)); // Calculate full weeks to nearest Thursday
+
+  var weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7); // Return array of year and week number
+
+  return [d.getUTCFullYear(), weekNo];
 }
 },{}],"scripts/preprocess.js":[function(require,module,exports) {
 "use strict";
@@ -325,6 +259,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.addDayType = addDayType;
 exports.aggregateData = aggregateData;
+exports.aggregateDataForViz3 = aggregateDataForViz3;
 
 // INF8808 - Exo
 //
@@ -424,52 +359,152 @@ function aggregateData(csvData, vizData, startDate, endDate, typeJour, ferie) {
         vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets.push({
           codeArret: csvData[i].arret_code,
           nomArret: csvData[i].arret_nom,
-          minutesEcart: [],
+          sequenceArret: csvData[i].sequence_arret,
+          minutesEcart: new Map(),
           moyMinutesEcart: null,
-          nClients: [],
+          nClients: new Map(),
           moyNClients: null,
-          ponctualite: [],
+          ponctualite: new Map(),
           tauxPonctualite: null,
-          minutesEcartClient: [],
+          minutesEcartClient: new Map(),
           moyMinutesEcartClient: null
         });
         posArret = vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets.length - 1;
       }
 
-      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].minutesEcart.push(csvData[i].Minutes_ecart_planifie);
-      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].nClients.push(csvData[i].montants);
-      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].ponctualite.push(csvData[i].Etat_Ponctualite);
-      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].minutesEcartClient.push(csvData[i].Minutes_ecart_planifie * csvData[i].montants);
+      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].minutesEcart.set(csvData[i].date, csvData[i].Minutes_ecart_planifie);
+      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].nClients.set(csvData[i].date, csvData[i].montants);
+      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].ponctualite.set(csvData[i].date, csvData[i].Etat_Ponctualite);
+      vizData[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets[posArret].minutesEcartClient.set(csvData[i].date, csvData[i].Minutes_ecart_planifie * csvData[i].montants);
     }
-  } // Fonctions pour créer les indicateurs
-
-
-  var average = function average(arr) {
-    return +(arr.reduce(function (a, b) {
-      return a + b;
-    }, 0) / arr.length).toFixed(2);
-  }; // https://poopcode.com/calculate-the-average-of-an-array-of-numbers-in-javascript/
-
-
-  var computeTauxPonctualite = function computeTauxPonctualite(arr) {
-    return arr.filter(function (x) {
-      return x === 'Ponctuel';
-    }).length / arr.length;
-  }; // Parcours de vizData pour calculer les indicateurs pour chaque ligne.arret
+  } // Parcours de vizData pour calculer les indicateurs pour chaque ligne.arret
 
 
   vizData.forEach(function (ligne) {
     ligne.girouettes.forEach(function (girouette) {
       girouette.voyages.forEach(function (voyage) {
         voyage.arrets.forEach(function (arret) {
-          arret.moyMinutesEcart = average(arret.minutesEcart);
-          arret.moyNClients = average(arret.nClients);
-          arret.moyMinutesEcartClient = average(arret.minutesEcartClient);
-          arret.tauxPonctualite = computeTauxPonctualite(arret.ponctualite);
+          var sumMinutesEcart = 0;
+          arret.minutesEcart.forEach(function (v) {
+            sumMinutesEcart += v;
+          });
+          arret.moyMinutesEcart = sumMinutesEcart / arret.minutesEcart.size;
+          var sumNClients = 0;
+          arret.nClients.forEach(function (v) {
+            sumNClients += v;
+          });
+          arret.moyNClients = sumNClients / arret.nClients.size;
+          var sumMinutesEcartClient = 0;
+          arret.minutesEcartClient.forEach(function (v) {
+            sumMinutesEcartClient += v;
+          });
+          arret.moyMinutesEcartClient = sumMinutesEcartClient / arret.minutesEcartClient.size;
+          var countPonctuel = 0;
+          arret.ponctualite.forEach(function (v) {
+            if (v === 'Ponctuel') {
+              countPonctuel++;
+            }
+          });
+          arret.tauxPonctualite = countPonctuel / arret.ponctualite.size;
         });
       });
     });
   });
+}
+/**
+ * aggregateDataForViz3() remplit l'objet vizData à partir des données du csv (data)
+ *
+ * @param {*} csvData L'array d'objets qui contient les lignes du csv, modifié par preprocess.addDayType()
+ * @param {*} vizData L'array d'objets qui contient les données consolidées requises pour générer les viz
+ * @param {*} startDate Date de début
+ * @param {*} endDate Date de fin
+ * @param {*} typeJour On considère semaine ou weekend
+ * @param {*} ferie On considère les fériés si true
+ */
+
+
+function aggregateDataForViz3(csvData, vizData, startDate, endDate, typeJour, ferie) {
+  // Boucle sur les lignes de csvData pour remplir la structure vizData
+  for (var i = 0; i < csvData.length; i++) {
+    if (csvData[i].date >= startDate && csvData[i].date <= endDate && csvData[i].type_jour === typeJour && csvData[i].ferie === ferie) {
+      if (vizData.length === 0) {
+        vizData.push({
+          date: csvData[i].date,
+          lignes: []
+        });
+      } // On ajoute la date si elle n'existe pas déjà dans vizData
+
+
+      var posDate = vizData.findIndex(function (e) {
+        return e.date.valueOf() === csvData[i].date.valueOf();
+      });
+
+      if (posDate === -1) {
+        vizData.push({
+          date: csvData[i].date,
+          lignes: []
+        });
+        posDate = vizData.length - 1;
+      } // On ajoute la ligne si elle n'existe pas déjà dans vizData
+
+
+      var posLigne = vizData[posDate].lignes.findIndex(function (e) {
+        return e.ligne === csvData[i].ligne;
+      });
+
+      if (posLigne === -1) {
+        vizData[posDate].lignes.push({
+          ligne: csvData[i].ligne,
+          girouettes: []
+        });
+        posLigne = vizData[posDate].lignes.length - 1;
+      } // On ajoute la girouette si elle n'existe pas déjà dans vizData
+
+
+      var posGirouette = vizData[posDate].lignes[posLigne].girouettes.findIndex(function (e) {
+        return e.girouette === csvData[i].Girouette;
+      });
+
+      if (posGirouette === -1) {
+        vizData[posDate].lignes[posLigne].girouettes.push({
+          girouette: csvData[i].Girouette,
+          voyages: []
+        });
+        posGirouette = vizData[posDate].lignes[posLigne].girouettes.length - 1;
+      } // On ajoute le voyage s'il n'existe pas déjà dans vizData
+
+
+      var posVoyage = vizData[posDate].lignes[posLigne].girouettes[posGirouette].voyages.findIndex(function (e) {
+        return e.voyage === csvData[i].voyage;
+      });
+
+      if (posVoyage === -1) {
+        vizData[posDate].lignes[posLigne].girouettes[posGirouette].voyages.push({
+          voyage: csvData[i].voyage,
+          arrets: []
+        });
+        posVoyage = vizData[posDate].lignes[posLigne].girouettes[posGirouette].voyages.length - 1;
+      } // On ajoute l'arrêt s'il n'existe pas déjà dans vizData
+
+
+      var posArret = vizData[posDate].lignes[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets.findIndex(function (e) {
+        return e.codeArret === csvData[i].arret_code;
+      });
+
+      if (posArret === -1) {
+        vizData[posDate].lignes[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets.push({
+          codeArret: csvData[i].arret_code,
+          nomArret: csvData[i].arret_nom,
+          sequenceArret: csvData[i].sequence_arret,
+          minutesEcart: csvData[i].Minutes_ecart_planifie,
+          nClients: csvData[i].montants,
+          ponctualite: csvData[i].Etat_Ponctualite,
+          minutesEcartClient: csvData[i].Minutes_ecart_planifie * csvData[i].montants
+        });
+        posArret = vizData[posDate].lignes[posLigne].girouettes[posGirouette].voyages[posVoyage].arrets.length - 1;
+      }
+    }
+  }
 }
 },{}],"scripts/grouped-quantile.js":[function(require,module,exports) {
 "use strict";
@@ -480,7 +515,10 @@ Object.defineProperty(exports, "__esModule", {
 exports.generateViz3 = generateViz3;
 exports.generateDelayGraph = generateDelayGraph;
 exports.generateTrafficGraph = generateTrafficGraph;
+exports.setTrafficGraph = setTrafficGraph;
 exports.generateGroupedQuantileGraph = generateGroupedQuantileGraph;
+exports.getDelayQuantileSets = getDelayQuantileSets;
+exports.getTrafficQuantileSets = getTrafficQuantileSets;
 
 var helper = _interopRequireWildcard(require("./helper.js"));
 
@@ -511,23 +549,25 @@ function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(
 function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 var MARGIN = {
-  top: 100,
+  top: 52,
   right: 80,
-  bottom: 150,
-  left: 150
+  bottom: 100,
+  left: 80
 };
-var FONT_SIZE = 16;
+var FONT_SIZE = 14;
 var DIRECTIONS_ANGLE = -45;
 var QUANTILE_STROKE_COLOR = 'black';
 var QUANTILE_FILL_COLOR = 'lightgray';
 var QUANTILE_STROKE_WIDTH = 2;
 var NUMBER_OF_TICKS = 10;
-var GRADIENT_COLORS = ['#ffe4e4', '#e4ffe4', '#ffffe4'];
+var GRADIENT_COLORS = ['#ff9999', '#99ff99', '#ffff99'];
+var GRADIENT_THRESHOLDS = ['10', '5', '0', '-5'];
+var selectValue = '';
 /**
- *
+ * @param vizData
  */
 
-function generateViz3() {
+function generateViz3(vizData) {
   // Split container in two
   var container = d3.select('#grouped-quantile-graph-container');
   var delayGraphContainer = container.append('div').style('width', '50%').style('height', '100%').style('float', 'left');
@@ -538,21 +578,22 @@ function generateViz3() {
   data.directions = ['Lafontaine', 'Montmorency', 'Côté', 'George VI']; // Regenerate graphs on resize
 
   new ResizeObserver(function () {
-    generateDelayGraph(delayGraphContainer, data);
+    generateDelayGraph(delayGraphContainer, data, vizData);
   }).observe(delayGraphContainer.node());
   new ResizeObserver(function () {
-    generateTrafficGraph(trafficGraphContainer, data);
+    generateTrafficGraph(trafficGraphContainer, data, vizData);
   }).observe(trafficGraphContainer.node());
 }
 /**
  * @param {Selection} container The div to generate the graph in
  * @param {object} data The data to fetch
+ * @param vizData
  */
 
 
-function generateDelayGraph(container, data) {
-  // TODO: Fetch data
-  data.quantileSets = [[10, 20, 30, 40, 50], [-5, 25, 40, 50, 70], [15, 20, 55, 60, 65], [40, 50, 60, 70, 90]]; // Generate common graph
+function generateDelayGraph(container, data, vizData) {
+  // Fetch data
+  data.quantileSets = getDelayQuantileSets(vizData); // Generate common graph
 
   data.title = 'Retard Moyen';
 
@@ -561,8 +602,8 @@ function generateDelayGraph(container, data) {
       svg = _generateGroupedQuant2[0],
       dataScale = _generateGroupedQuant2[1];
 
-  var WIDTH = container.node().getBoundingClientRect().width;
-  var HEIGHT = container.node().getBoundingClientRect().height; // Set gradients
+  var HEIGHT = container.node().getBoundingClientRect().height;
+  var WIDTH = Math.min(HEIGHT, container.node().getBoundingClientRect().width); // Set gradients
 
   svg.append('defs').append('linearGradient').attr('id', 'late-grad').attr('x1', '0%').attr('x2', '0%').attr('y1', '0%').attr('y2', '100%').selectAll('stop').data([GRADIENT_COLORS[0], GRADIENT_COLORS[1]]).enter().append('stop').style('stop-color', function (d) {
     return d;
@@ -575,31 +616,111 @@ function generateDelayGraph(container, data) {
     return 100 * i + '%';
   }); // Draw gradients
 
-  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', dataScale(15) - MARGIN.top).attr('y', MARGIN.top).attr('fill', GRADIENT_COLORS[0]);
-  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', dataScale(5) - dataScale(15)).attr('y', dataScale(15)).attr('fill', 'url(#late-grad)');
-  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', dataScale(-5) - dataScale(5)).attr('y', dataScale(5)).attr('fill', 'url(#early-grad)');
-  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', HEIGHT - MARGIN.bottom - dataScale(-5)).attr('y', dataScale(-5)).attr('fill', GRADIENT_COLORS[2]); // Set y axis label
+  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', dataScale(GRADIENT_THRESHOLDS[0]) - MARGIN.top).attr('y', MARGIN.top).attr('fill', GRADIENT_COLORS[0]);
+  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', dataScale(GRADIENT_THRESHOLDS[1]) - dataScale(GRADIENT_THRESHOLDS[0])).attr('y', dataScale(GRADIENT_THRESHOLDS[0])).attr('fill', 'url(#late-grad)');
+  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', dataScale(GRADIENT_THRESHOLDS[2]) - dataScale(GRADIENT_THRESHOLDS[1])).attr('y', dataScale(GRADIENT_THRESHOLDS[1])).attr('fill', GRADIENT_COLORS[1]);
+  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', dataScale(GRADIENT_THRESHOLDS[3]) - dataScale(GRADIENT_THRESHOLDS[2])).attr('y', dataScale(GRADIENT_THRESHOLDS[2])).attr('fill', 'url(#early-grad)');
+  svg.insert('rect', '#x-axis').attr('width', WIDTH - MARGIN.left - MARGIN.right).attr('x', MARGIN.left).attr('height', HEIGHT - MARGIN.bottom - dataScale(GRADIENT_THRESHOLDS[3])).attr('y', dataScale(GRADIENT_THRESHOLDS[3])).attr('fill', GRADIENT_COLORS[2]); // Set y axis label
 
-  svg.select('#y-axis > .label').text('Minute');
+  svg.select('#y-axis > .label').text('Minute').attr('fill', '#898989'); // Legend
+
+  var legend = svg.insert('g', '#x-axis').style('font-size', '12px');
+  var middleY = (HEIGHT - MARGIN.top - MARGIN.bottom) / 2 + MARGIN.top;
+  var squareWidth = FONT_SIZE * 2 / 3;
+  var paddingX = FONT_SIZE * 2;
+  var paddingY = FONT_SIZE * 1.5;
+  legend.append('rect').attr('width', squareWidth).attr('x', WIDTH - MARGIN.right + FONT_SIZE).attr('height', squareWidth).attr('y', middleY - paddingY).attr('stroke', QUANTILE_STROKE_COLOR).attr('fill', GRADIENT_COLORS[0]);
+  legend.append('text').attr('x', WIDTH - MARGIN.right + paddingX).attr('y', middleY - paddingY + squareWidth).text('Retard');
+  legend.append('rect').attr('width', squareWidth).attr('x', WIDTH - MARGIN.right + FONT_SIZE).attr('height', squareWidth).attr('y', middleY).attr('stroke', QUANTILE_STROKE_COLOR).attr('fill', GRADIENT_COLORS[1]);
+  legend.append('text').attr('x', WIDTH - MARGIN.right + paddingX).attr('y', middleY + squareWidth).text('Ponctuel');
+  legend.append('rect').attr('width', squareWidth).attr('x', WIDTH - MARGIN.right + FONT_SIZE).attr('height', squareWidth).attr('y', middleY + paddingY).attr('stroke', QUANTILE_STROKE_COLOR).attr('fill', GRADIENT_COLORS[2]);
+  legend.append('text').attr('x', WIDTH - MARGIN.right + paddingX).attr('y', middleY + paddingY + squareWidth).text('Avance');
 }
 /**
  * @param {Selection} container The div to generate the graph in
  * @param {object} data The data to fetch
+ * @param vizData
  */
 
 
-function generateTrafficGraph(container, data) {
-  // TODO: Fetch data
-  data.quantileSets = [[100, 200, 300, 350, 500], [50, 200, 250, 600, 650], [200, 350, 400, 600, 700], [450, 500, 600, 700, 750]]; // Generate common graph
+function generateTrafficGraph(container, data, vizData) {
+  // Fetch data
+  var _getTrafficQuantileSe = getTrafficQuantileSets(vizData),
+      _getTrafficQuantileSe2 = _slicedToArray(_getTrafficQuantileSe, 3),
+      quantileTripSets = _getTrafficQuantileSe2[0],
+      quantileDaySets = _getTrafficQuantileSe2[1],
+      quantileWeekSets = _getTrafficQuantileSe2[2];
 
+  if (selectValue === '') {
+    data.quantileSets = quantileTripSets;
+  } else {
+    if (selectValue === 'week') {
+      data.quantileSets = quantileWeekSets;
+    } else if (selectValue === 'day') {
+      data.quantileSets = quantileDaySets;
+    } else if (selectValue === 'trip') {
+      data.quantileSets = quantileTripSets;
+    }
+  } // Create select
+
+
+  var weekOption = document.createElement('option');
+  weekOption.value = 'week';
+  weekOption.innerHTML = 'semaine';
+  var dayOption = document.createElement('option');
+  dayOption.value = 'day';
+  dayOption.innerHTML = 'jour';
+  var tripOption = document.createElement('option');
+  tripOption.value = 'trip';
+  tripOption.innerHTML = 'trajet';
+  var select = document.createElement('select');
+  select.appendChild(tripOption);
+  select.appendChild(dayOption);
+  select.appendChild(weekOption);
+
+  if (selectValue !== '') {
+    select.value = selectValue;
+  }
+
+  select.addEventListener('change', function () {
+    if (this.value === 'week') {
+      data.quantileSets = quantileWeekSets;
+    } else if (this.value === 'day') {
+      data.quantileSets = quantileDaySets;
+    } else if (this.value === 'trip') {
+      data.quantileSets = quantileTripSets;
+    }
+
+    selectValue = this.value;
+    setTrafficGraph(container, data, select);
+  }); // generate traffic graph
+
+  setTrafficGraph(container, data, select);
+}
+/**
+ * @param {Selection} container The div to generate the graph in
+ * @param {object} data The data to fetch
+ * @param {object} select select
+ */
+
+
+function setTrafficGraph(container, data, select) {
+  // Generate common graph
   data.title = 'Achalandage Moyen';
 
   var _generateGroupedQuant3 = generateGroupedQuantileGraph(container, data),
       _generateGroupedQuant4 = _slicedToArray(_generateGroupedQuant3, 1),
-      svg = _generateGroupedQuant4[0]; // Set y axis label
+      svg = _generateGroupedQuant4[0]; // Position select
 
 
-  svg.select('#y-axis > .label').text('Nombre de personnes\npar jour');
+  var top = svg.node().getBoundingClientRect().top + 30;
+  var left = svg.node().getBoundingClientRect().left + MARGIN.left - 70;
+  select.setAttribute('style', "position: absolute; top: ".concat(top, "px; left: ").concat(left, "px; font-size: 12px"));
+  container.node().appendChild(select); // Label
+
+  svg.select('#y-axis > .label').text('');
+  svg.select('#y-axis > .label').append('tspan').attr('x', (MARGIN.left - 1).toString()).attr('y', '13').text('Nombre de');
+  svg.select('#y-axis > .label').append('tspan').attr('x', (MARGIN.left + 9).toString()).attr('y', '25').text('personnes par');
 }
 /**
  * @param {Selection} container The div to generate the graph in
@@ -613,11 +734,11 @@ function generateGroupedQuantileGraph(container, data) {
   // Delete existing content
   container.html(''); // Set size
 
-  var WIDTH = container.node().getBoundingClientRect().width;
   var HEIGHT = container.node().getBoundingClientRect().height;
+  var WIDTH = Math.min(HEIGHT, container.node().getBoundingClientRect().width);
   var BAR_WIDTH = (WIDTH - MARGIN.left - MARGIN.right) / 7; // Create svg
 
-  var svg = container.append('svg').attr('width', WIDTH).attr('height', HEIGHT); // ===================== SCALES =====================
+  var svg = container.append('svg').attr('width', WIDTH).attr('height', HEIGHT).attr('style', 'display: block; margin: auto'); // ===================== SCALES =====================
   // Create lines scale
 
   var linesScale = d3.scaleOrdinal().domain(data.lines).range([MARGIN.left + 2 * BAR_WIDTH, MARGIN.left + 5 * BAR_WIDTH]); // Create directions scale
@@ -678,7 +799,7 @@ function generateGroupedQuantileGraph(container, data) {
     _iterator2.f();
   }
 
-  var dataScale = d3.scaleLinear().domain([minValue, maxValue]).range([HEIGHT - MARGIN.bottom - FONT_SIZE, MARGIN.top]); // ===================== X AXIS =====================
+  var dataScale = d3.scaleLinear().domain([Math.min(minValue, 0), maxValue]).range([HEIGHT - MARGIN.bottom - FONT_SIZE / 2, MARGIN.top + FONT_SIZE / 2]); // ===================== X AXIS =====================
 
   var xAxis = svg.append('g').attr('id', 'x-axis'); // Draw axis line
 
@@ -692,7 +813,7 @@ function generateGroupedQuantileGraph(container, data) {
   try {
     for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
       var _line = _step3.value;
-      xAxis.append('text').attr('x', linesScale(_line)).attr('y', lineValuesY).attr('text-anchor', 'middle').text(_line).style('font-size', FONT_SIZE);
+      xAxis.append('text').attr('x', linesScale(_line)).attr('y', lineValuesY).attr('text-anchor', 'middle').text(_line).attr('fill', '#898989').style('font-size', FONT_SIZE);
     } // Draw direction values
 
   } catch (err) {
@@ -705,12 +826,12 @@ function generateGroupedQuantileGraph(container, data) {
 
   for (var i = 0; i < data.directions.length; i++) {
     var x = directionsScale(data.directions[i]);
-    xAxis.append('text').attr('text-anchor', 'end').attr('transform', "translate(".concat(x, ", ").concat(directionValuesY, ") rotate(").concat(DIRECTIONS_ANGLE, ")")).text(data.directions[i]).style('font-size', FONT_SIZE).attr('class', "direction".concat(i, " label"));
+    xAxis.append('text').attr('text-anchor', 'end').attr('transform', "translate(".concat(x, ", ").concat(directionValuesY, ") rotate(").concat(DIRECTIONS_ANGLE, ")")).text(data.directions[i]).style('font-size', '12px').attr('font-family', 'sans-serif').attr('class', "direction".concat(i, " label"));
   } // Draw labels
 
 
-  xAxis.append('text').attr('x', WIDTH - MARGIN.right + FONT_SIZE / 2).attr('y', lineValuesY).text('Ligne').style('font-size', FONT_SIZE);
-  xAxis.append('text').attr('x', WIDTH - MARGIN.right + FONT_SIZE / 2).attr('y', directionValuesY + FONT_SIZE).text('Direction').style('font-size', FONT_SIZE); // ===================== Y AXIS =====================
+  xAxis.append('text').attr('x', WIDTH - MARGIN.right + FONT_SIZE / 2).attr('y', lineValuesY).text('Ligne').attr('fill', '#898989').style('font-size', FONT_SIZE);
+  xAxis.append('text').attr('x', WIDTH - MARGIN.right + FONT_SIZE / 2).attr('y', directionValuesY + FONT_SIZE).text('Direction').attr('fill', '#898989').style('font-size', FONT_SIZE); // ===================== Y AXIS =====================
 
   var yAxis = svg.append('g').attr('id', 'y-axis'); // Draw axis line
 
@@ -726,7 +847,7 @@ function generateGroupedQuantileGraph(container, data) {
       var step = _step4.value;
       var y = dataScale(step); // Draw data values
 
-      yAxis.append('text').attr('text-anchor', 'end').attr('x', MARGIN.left - FONT_SIZE).attr('y', y + FONT_SIZE / 2).text(step).style('font-size', FONT_SIZE); // Draw ticks
+      yAxis.append('text').attr('text-anchor', 'end').attr('x', MARGIN.left - FONT_SIZE).attr('y', y + FONT_SIZE / 3).text(step).attr('font-family', 'sans-serif').style('font-size', FONT_SIZE); // Draw ticks
 
       yAxis.append('path').attr('d', d3.line()([[MARGIN.left - FONT_SIZE / 2, y], [MARGIN.left, y]])).attr('stroke', QUANTILE_STROKE_COLOR).attr('stroke-width', QUANTILE_STROKE_WIDTH);
     } // Draw labels
@@ -737,9 +858,39 @@ function generateGroupedQuantileGraph(container, data) {
     _iterator4.f();
   }
 
-  yAxis.append('text').attr('x', MARGIN.left - FONT_SIZE / 2).attr('y', MARGIN.top - FONT_SIZE / 2).attr('class', 'label').attr('text-anchor', 'end').text('Unité de données').style('font-size', FONT_SIZE); // ===================== CANDLES =====================
+  yAxis.append('text').attr('x', MARGIN.left - FONT_SIZE / 2).attr('y', MARGIN.top - FONT_SIZE / 2).attr('class', 'label').attr('text-anchor', 'end').text('Unité de données').attr('fill', '#898989').style('font-size', FONT_SIZE); // ===================== CANDLES =====================
 
-  var bars = svg.append('g').attr('id', 'candles');
+  var bars = svg.append('g').attr('id', 'candles'); // HISTOGRAMME
+
+  /* for (let i = 0; i < data.quantileSets.length; i++) {
+    // Features of the histogram
+    var histogram = d3.histogram()
+      .domain(dataScale.domain())
+      .thresholds(dataScale.ticks(50)) // Important: how many bins approx are going to be made? It is the 'resolution' of the violin plot
+      .value(d => d)
+    const bins = histogram(data.quantileSets[i])
+    // What is the biggest number of value in a bin? We need it cause this value will have a width of 100% of the bandwidth.
+    var maxNum = 0
+    for (const bin of bins) {
+      if (bin.length > maxNum) {
+        maxNum = bin.length
+      }
+    }
+    // The maximum width of a violin must be x.bandwidth = the width dedicated to a group
+    var xNum = d3.scaleLinear()
+      .range([0, BAR_WIDTH])
+      .domain([-maxNum, maxNum])
+    // Add the shape to this svg!
+    const areaGenerator = d3.area()
+      .x0((d) => xNum(-d.length))
+      .x1((d) => xNum(d.length))
+      .y((d) => dataScale(d.x0))
+      .curve(d3.curveStep)
+    bars.append('path')
+      .attr('transform', `translate(${directionsScale(data.directions[i]) - BAR_WIDTH / 2})`)
+      .style('fill', '#69b3a2')
+      .attr('d', areaGenerator(bins))
+  } */
 
   for (var _i2 = 0; _i2 < data.quantileSets.length; _i2++) {
     var _x = directionsScale(data.directions[_i2]);
@@ -756,12 +907,21 @@ function generateGroupedQuantileGraph(container, data) {
 
     bars.append('path').attr('d', d3.line()([[_x - BAR_WIDTH / 2, q2], [_x + BAR_WIDTH / 2, q2]])).attr('stroke', QUANTILE_STROKE_COLOR).attr('stroke-width', QUANTILE_STROKE_WIDTH).attr('class', "direction".concat(_i2)); // Draw quantile values
 
+    var yValues = [0, 0, 0, 0, 0];
+    var minOffset = 11;
+    var centerOffset = 4;
+    yValues[2] = dataScale(data.quantileSets[_i2][2]) + centerOffset;
+    yValues[3] = Math.min(yValues[2] - minOffset, dataScale(data.quantileSets[_i2][3]) + centerOffset);
+    yValues[4] = Math.min(yValues[3] - minOffset, dataScale(data.quantileSets[_i2][4]) + centerOffset);
+    yValues[1] = Math.max(yValues[2] + minOffset, dataScale(data.quantileSets[_i2][1]) + centerOffset);
+    yValues[0] = Math.max(yValues[1] + minOffset, dataScale(data.quantileSets[_i2][0]) + centerOffset);
+
     for (var j = 0; j < data.quantileSets[_i2].length; j++) {
       var quantile = bars.append('g').attr('class', "direction".concat(_i2, " quantile")).style('visibility', 'hidden');
-      quantile.append('text').attr('x', directionsScale(data.directions[_i2]) + (_i2 % 2 === 0 ? -1 : 1) * (BAR_WIDTH / 2 + FONT_SIZE / 2)).attr('y', dataScale(data.quantileSets[_i2][j])).attr('text-anchor', _i2 % 2 === 0 ? 'end' : 'start').text(data.quantileSets[_i2][j]).style('font-size', FONT_SIZE).attr('id', "quantile-text-".concat(_i2, "-").concat(j)); // Text background
 
-      var textBoundingClientRect = quantile.node().getBoundingClientRect();
-      quantile.insert('rect', "#quantile-text-".concat(_i2, "-").concat(j)).attr('width', textBoundingClientRect.width).attr('x', textBoundingClientRect.x).attr('height', textBoundingClientRect.height).attr('y', textBoundingClientRect.y).attr('fill', 'white');
+      var _x2 = directionsScale(data.directions[_i2]) + (_i2 % 2 === 0 ? -1 : 1) * (BAR_WIDTH / 2 + FONT_SIZE / 2);
+
+      quantile.append('text').attr('x', _x2).attr('y', yValues[j]).attr('text-anchor', _i2 % 2 === 0 ? 'end' : 'start').text(Math.round(data.quantileSets[_i2][j])).style('font-size', FONT_SIZE).attr('id', "quantile-text-".concat(_i2, "-").concat(j));
     }
   } // ===================== HOVER =====================
   // Create triggers
@@ -771,11 +931,11 @@ function generateGroupedQuantileGraph(container, data) {
     bars.append('rect').attr('width', BAR_WIDTH).attr('x', directionsScale(data.directions[_i3]) - BAR_WIDTH / 2).attr('height', dataScale.range()[0] - dataScale.range()[1] + FONT_SIZE).attr('y', MARGIN.top).attr('fill', 'transparent') // Highlight direction
     .on('mouseover', function () {
       d3.selectAll(".direction".concat(_i3)).attr('stroke-width', QUANTILE_STROKE_WIDTH * 2);
-      d3.selectAll(".direction".concat(_i3, ".label")).style('font-size', FONT_SIZE * 1.5);
+      d3.selectAll(".direction".concat(_i3, ".label")).attr('font-weight', 1000);
       d3.selectAll(".direction".concat(_i3, ".quantile")).style('visibility', 'visible'); // Unhighlight direction
     }).on('mouseout', function () {
       d3.selectAll(".direction".concat(_i3)).attr('stroke-width', QUANTILE_STROKE_WIDTH);
-      d3.selectAll(".direction".concat(_i3, ".label")).style('font-size', FONT_SIZE);
+      d3.selectAll(".direction".concat(_i3, ".label")).attr('font-weight', 0);
       d3.selectAll(".direction".concat(_i3, ".quantile")).style('visibility', 'hidden');
     });
   };
@@ -789,12 +949,177 @@ function generateGroupedQuantileGraph(container, data) {
   svg.append('text').attr('x', (WIDTH - MARGIN.right - MARGIN.left) / 2 + MARGIN.left).attr('y', MARGIN.top - FONT_SIZE * 2).attr('text-anchor', 'middle').text(data.title).style('font-size', FONT_SIZE);
   return [svg, dataScale];
 }
+/**
+ * @param {object} vizData Project data
+ * @returns {Array<number>} The quantile sets
+ */
+
+
+function getDelayQuantileSets(vizData) {
+  var quantileSets = [];
+  var delaySets = [[], [], [], []];
+
+  var _iterator6 = _createForOfIteratorHelper(vizData),
+      _step6;
+
+  try {
+    for (_iterator6.s(); !(_step6 = _iterator6.n()).done;) {
+      var day = _step6.value;
+
+      for (var i = 0; i < day.lignes.length; i++) {
+        var line = day.lignes[i];
+
+        for (var j = 0; j < line.girouettes.length; j++) {
+          var direction = line.girouettes[j];
+
+          var _iterator7 = _createForOfIteratorHelper(direction.voyages),
+              _step7;
+
+          try {
+            for (_iterator7.s(); !(_step7 = _iterator7.n()).done;) {
+              var trip = _step7.value;
+
+              var _iterator8 = _createForOfIteratorHelper(trip.arrets),
+                  _step8;
+
+              try {
+                for (_iterator8.s(); !(_step8 = _iterator8.n()).done;) {
+                  var stop = _step8.value;
+                  delaySets[i * day.lignes.length + j].push(stop.minutesEcart);
+                }
+              } catch (err) {
+                _iterator8.e(err);
+              } finally {
+                _iterator8.f();
+              }
+            }
+          } catch (err) {
+            _iterator7.e(err);
+          } finally {
+            _iterator7.f();
+          }
+        }
+      }
+    }
+  } catch (err) {
+    _iterator6.e(err);
+  } finally {
+    _iterator6.f();
+  }
+
+  for (var _i4 = 0, _delaySets = delaySets; _i4 < _delaySets.length; _i4++) {
+    var delaySet = _delaySets[_i4];
+    quantileSets.push(helper.getQuantiles(delaySet));
+  }
+
+  return quantileSets;
+}
+/**
+ * @param {object} vizData Project data
+ * @returns {Array<number>} The quantile sets
+ */
+
+
+function getTrafficQuantileSets(vizData) {
+  var tripSets = [[], [], [], []];
+  var daySets = [[], [], [], []];
+  var weekSets = [[], [], [], []];
+  var lastWeek = helper.getWeekNumber(new Date(Date.parse(vizData[0].date)))[1];
+  var weekClients = [0, 0, 0, 0];
+
+  var _iterator9 = _createForOfIteratorHelper(vizData),
+      _step9;
+
+  try {
+    for (_iterator9.s(); !(_step9 = _iterator9.n()).done;) {
+      var day = _step9.value;
+      var week = helper.getWeekNumber(new Date(Date.parse(day.date)))[1];
+
+      for (var i = 0; i < day.lignes.length; i++) {
+        var line = day.lignes[i];
+
+        for (var j = 0; j < line.girouettes.length; j++) {
+          var direction = line.girouettes[j];
+          var dayClients = 0;
+
+          var _iterator10 = _createForOfIteratorHelper(direction.voyages),
+              _step10;
+
+          try {
+            for (_iterator10.s(); !(_step10 = _iterator10.n()).done;) {
+              var trip = _step10.value;
+              var tripClients = 0;
+
+              var _iterator11 = _createForOfIteratorHelper(trip.arrets),
+                  _step11;
+
+              try {
+                for (_iterator11.s(); !(_step11 = _iterator11.n()).done;) {
+                  var stop = _step11.value;
+                  tripClients += stop.nClients;
+                }
+              } catch (err) {
+                _iterator11.e(err);
+              } finally {
+                _iterator11.f();
+              }
+
+              dayClients += tripClients;
+              tripSets[i * day.lignes.length + j].push(tripClients);
+            }
+          } catch (err) {
+            _iterator10.e(err);
+          } finally {
+            _iterator10.f();
+          }
+
+          daySets[i * day.lignes.length + j].push(dayClients);
+          weekClients[i * day.lignes.length + j] += dayClients;
+        }
+      }
+
+      if (lastWeek !== week) {
+        for (var _i8 = 0; _i8 < weekClients.length; _i8++) {
+          weekSets[_i8].push(weekClients[_i8]);
+        }
+
+        weekClients = [0, 0, 0, 0];
+        lastWeek = week;
+      }
+    }
+  } catch (err) {
+    _iterator9.e(err);
+  } finally {
+    _iterator9.f();
+  }
+
+  var quantileTripSets = [];
+
+  for (var _i5 = 0, _tripSets = tripSets; _i5 < _tripSets.length; _i5++) {
+    var tripSet = _tripSets[_i5];
+    quantileTripSets.push(helper.getQuantiles(tripSet));
+  }
+
+  var quantileDaySets = [];
+
+  for (var _i6 = 0, _daySets = daySets; _i6 < _daySets.length; _i6++) {
+    var daySet = _daySets[_i6];
+    quantileDaySets.push(helper.getQuantiles(daySet));
+  }
+
+  var quantileWeekSets = [];
+
+  for (var _i7 = 0, _weekSets = weekSets; _i7 < _weekSets.length; _i7++) {
+    var weekSet = _weekSets[_i7];
+    quantileWeekSets.push(helper.getQuantiles(weekSet));
+  }
+
+  return [quantileTripSets, quantileDaySets, quantileWeekSets];
+}
 },{"./helper.js":"scripts/helper.js"}],"index.js":[function(require,module,exports) {
 'use strict';
 
 var helper = _interopRequireWildcard(require("./scripts/helper.js"));
-
-var heatmap = _interopRequireWildcard(require("./scripts/heatmap.js"));
 
 var preprocess = _interopRequireWildcard(require("./scripts/preprocess.js"));
 
@@ -818,17 +1143,14 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
   };
   helper.setCanvasSize(svgSize.width, svgSize.height);
   helper.generateMapG(svgSize.width, svgSize.height);
-  helper.generateMarkerG(svgSize.width, svgSize.height);
-  helper.appendGraphLabels(d3.select('.main-svg'));
-  helper.initPanelDiv(); // Solution temporaire, éventuellement l'utilisateur peut choisir la période qui l'intéresse, s'il veut inclure les week-end et les fériés.
+  helper.generateMarkerG(svgSize.width, svgSize.height); // Solution temporaire, éventuellement l'utilisateur peut choisir la période qui l'intéresse, s'il veut inclure les week-end et les fériés.
 
-  var startDate = new Date('2021-09-01');
-  var endDate = new Date('2021-12-01');
+  var startDate = new Date('2021/09/01');
+  var endDate = new Date('2021/12/01');
   var typeJour = 'semaine';
   var ferie = false;
   var vizData = [];
   build();
-  groupedQuantile.generateViz3();
   /**
    *   Cette fonction construit la page web
    */
@@ -846,16 +1168,14 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
         d.sequence_arret = +d.sequence_arret;
         d.arret_Latitude = +d.arret_Latitude;
         d.arret_Longitude = +d.arret_Longitude;
-      }); //console.log(csvData)
-
+      });
       preprocess.addDayType(csvData);
-      preprocess.aggregateData(csvData, vizData, startDate, endDate, typeJour, ferie);
-      console.log(vizData);
-      heatmap.drawHeatmap(vizData, 9, 'Lafontaine Via Gare  Saint-Jérôme', 'moyMinutesEcart');
+      preprocess.aggregateDataForViz3(csvData, vizData, startDate, endDate, typeJour, ferie);
+      groupedQuantile.generateViz3(vizData);
     });
   }
 })(d3);
-},{"./scripts/helper.js":"scripts/helper.js","./scripts/heatmap.js":"scripts/heatmap.js","./scripts/preprocess.js":"scripts/preprocess.js","./scripts/grouped-quantile.js":"scripts/grouped-quantile.js"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"./scripts/helper.js":"scripts/helper.js","./scripts/preprocess.js":"scripts/preprocess.js","./scripts/grouped-quantile.js":"scripts/grouped-quantile.js"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -883,7 +1203,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52756" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61029" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
